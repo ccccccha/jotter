@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 export default function LandingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [email, setEmail] = useState('');
   const streamTextRef = useRef<HTMLDivElement>(null);
   const contentDataRef = useRef<Array<{
     element: HTMLElement;
@@ -73,12 +72,6 @@ export default function LandingPage() {
       }
     });
   }, [searchQuery]);
-
-  const handleJoinWaitlist = () => {
-    if (email) {
-      router.push('/signup');
-    }
-  };
 
   const handleTryBeta = () => {
     router.push('/dashboard');
@@ -355,34 +348,13 @@ export default function LandingPage() {
                 </p>
                 
                 <div className="space-y-3">
-                  <div>
-                    <label className="sr-only" htmlFor="email">Email address</label>
-                    <input 
-                      type="email" 
-                      id="email" 
-                      placeholder="your@email.com" 
-                      className="w-full bg-white border border-neutral-300 rounded-lg px-4 py-3 text-sm font-modern focus:outline-none focus:border-black transition-colors placeholder-neutral-500"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  
-                  {/* Try Beta Button - PRIMARY */}
+                  {/* Try Beta Button - Pink */}
                   <button 
                     type="button" 
                     onClick={handleTryBeta}
-                    className="w-full bg-blue-600 text-white font-modern font-extrabold uppercase tracking-wide text-sm px-6 py-4 rounded-lg hover:bg-blue-700 transition-all transform active:scale-95"
+                    className="w-full bg-pink-600 text-white font-modern font-extrabold uppercase tracking-wide text-sm px-6 py-4 rounded-lg hover:bg-pink-700 transition-all transform active:scale-95"
                   >
                     Try Beta Now →
-                  </button>
-                  
-                  {/* Join Waitlist Button - SECONDARY */}
-                  <button 
-                    type="button" 
-                    onClick={handleJoinWaitlist}
-                    className="w-full bg-black text-white font-modern font-extrabold uppercase tracking-wide text-sm px-6 py-4 rounded-lg hover:bg-gray-800 transition-transform transform active:scale-95"
-                  >
-                    Join the waitlist
                   </button>
                 </div>
 
@@ -399,18 +371,12 @@ export default function LandingPage() {
             </div>
 
             {/* Mobile CTA */}
-            <div className="md:hidden mt-8 space-y-3">
+            <div className="md:hidden mt-8">
               <button 
                 onClick={handleTryBeta}
-                className="w-full bg-blue-600 text-white font-modern font-bold uppercase px-6 py-4 rounded-lg"
+                className="w-full bg-pink-600 text-white font-modern font-bold uppercase px-6 py-4 rounded-lg hover:bg-pink-700 transition-colors"
               >
                 Try Beta Now →
-              </button>
-              <button 
-                onClick={handleJoinWaitlist}
-                className="w-full bg-black text-white font-modern font-bold uppercase px-6 py-4 rounded-lg"
-              >
-                Join the waitlist
               </button>
             </div>
 
