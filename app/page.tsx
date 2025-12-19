@@ -256,7 +256,7 @@ export default function LandingPage() {
       `}</style>
 
       <div className="bg-white min-h-screen text-black overflow-x-hidden selection:bg-black selection:text-white">
-        <div className="max-w-[90rem] mx-auto px-6 md:px-12 relative h-screen flex flex-col">
+        <div className="max-w-[90rem] mx-auto px-6 md:px-12 relative min-h-screen flex flex-col">
           
           {/* Header */}
           <header className="flex justify-between items-center py-8 z-30 shrink-0">
@@ -267,7 +267,7 @@ export default function LandingPage() {
           </header>
 
           {/* Main Layout */}
-          <main className="flex-grow grid grid-cols-1 md:grid-cols-12 gap-8 items-center h-full pb-10">
+          <main className="flex-grow grid grid-cols-1 md:grid-cols-12 gap-8 items-center pb-10">
             
             {/* Left Column: Stream of Consciousness */}
             <div className="md:col-span-8 lg:col-span-8 relative z-10">
@@ -334,10 +334,20 @@ export default function LandingPage() {
                 </span>
 
               </div>
+
+              {/* Mobile CTA - Moved inside left column */}
+              <div className="md:hidden mt-8">
+                <button 
+                  onClick={handleTryBeta}
+                  className="w-full bg-pink-600 text-white font-modern font-bold uppercase px-6 py-4 rounded-lg hover:bg-pink-700 transition-colors"
+                >
+                  Try Beta Now - It's Free
+                </button>
+              </div>
             </div>
 
-            {/* Right Column: CTA Panel */}
-            <div className="md:col-span-4 lg:col-span-4 flex justify-end items-center h-full">
+            {/* Right Column: CTA Panel - Desktop Only */}
+            <div className="hidden md:flex md:col-span-4 lg:col-span-4 justify-end items-center">
               
               <div className="cta-glass-panel p-8 rounded-2xl w-full max-w-sm ml-auto">
                 <h2 className="font-modern text-2xl font-bold mb-2">
@@ -354,7 +364,7 @@ export default function LandingPage() {
                     onClick={handleTryBeta}
                     className="w-full bg-pink-600 text-white font-modern font-extrabold uppercase tracking-wide text-sm px-6 py-4 rounded-lg hover:bg-pink-700 transition-all transform active:scale-95"
                   >
-                    Try Beta Now →
+                    Try Beta Now - It's Free
                   </button>
                 </div>
 
@@ -368,16 +378,6 @@ export default function LandingPage() {
                 </div>
               </div>
 
-            </div>
-
-            {/* Mobile CTA */}
-            <div className="md:hidden mt-8">
-              <button 
-                onClick={handleTryBeta}
-                className="w-full bg-pink-600 text-white font-modern font-bold uppercase px-6 py-4 rounded-lg hover:bg-pink-700 transition-colors"
-              >
-                Try Beta Now →
-              </button>
             </div>
 
           </main>
