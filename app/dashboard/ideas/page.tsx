@@ -1,7 +1,7 @@
 // app/dashboard/ideas/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -28,7 +28,7 @@ function readableTextColor(hex: string) {
   return L > 0.6 ? 'black' : 'white';
 }
 
-export default function IdeaBoxPage() {
+function IdeaBoxContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tagFilter = searchParams.get('tag'); // Get tag from URL
@@ -50,9 +50,9 @@ export default function IdeaBoxPage() {
   }, [user]);
 
   async function loadUser() {
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user) router.push('/login');
-    else setUser(data.user);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) router.push('/login');
+    else setUser(session.user);
   }
 
   async function loadFolders() {
@@ -304,5 +304,17 @@ export default function IdeaBoxPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function IdeaBoxPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-white min-h-screen text-black flex items-center justify-center">
+        <p className="text-lg font-modern">Loading...</p>
+      </div>
+    }>
+      <IdeaBoxContent />
+    </Suspense>
   );
 }
