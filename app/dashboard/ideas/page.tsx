@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 function stringToColorHex(str: string) {
   const palette = [
@@ -30,6 +30,9 @@ function readableTextColor(hex: string) {
 
 export default function IdeaBoxPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tagFilter = searchParams.get('tag'); // Get tag from URL
+  
   const [user, setUser] = useState<any>(null);
   const [ideas, setIdeas] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
@@ -70,6 +73,10 @@ export default function IdeaBoxPage() {
     router.push('/');
   }
 
+  function clearTagFilter() {
+    router.push('/dashboard/ideas');
+  }
+
   const getFolderInfo = (folder_id: string) => {
     const folder = folders.find((f) => f.id === folder_id);
     if (!folder) return null;
@@ -78,6 +85,17 @@ export default function IdeaBoxPage() {
   };
 
   const filterIdea = (idea: any) => {
+    // Tag filter (from URL parameter)
+    if (tagFilter) {
+      const cleanTags = (idea.tags || []).map((t: string) => 
+        t.replace(/^#+/, '').toLowerCase()
+      );
+      if (!cleanTags.includes(tagFilter.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // Search filter
     if (!search.trim()) return true;
     const text = search.toLowerCase();
     return (
@@ -85,8 +103,7 @@ export default function IdeaBoxPage() {
       idea.description?.toLowerCase().includes(text) ||
       (Array.isArray(idea.tags)
         ? idea.tags.join(' ').toLowerCase()
-        : String(idea.tags || '')
-            .toLowerCase()
+        : String(idea.tags || '').toLowerCase()
       ).includes(text)
     );
   };
@@ -163,6 +180,23 @@ export default function IdeaBoxPage() {
           <main className="max-w-4xl mx-auto py-10">
             <h1 className="text-3xl font-modern font-bold mb-8">Idea Box</h1>
 
+            {/* Tag Filter Badge */}
+            {tagFilter && (
+              <div className="mb-6 flex items-center gap-3">
+                <span className="text-sm font-modern text-gray-600">Filtering by:</span>
+                <div className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full">
+                  <span className="text-sm font-modern font-bold">#{tagFilter}</span>
+                  <button
+                    onClick={clearTagFilter}
+                    className="text-white hover:text-gray-300 transition-colors ml-2"
+                    title="Clear filter"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
             <input
               type="text"
               placeholder="Search ideas by title, content, or tags..."
@@ -173,10 +207,24 @@ export default function IdeaBoxPage() {
 
             {Object.keys(grouped).length === 0 ? (
               <div className="text-center text-gray-500 py-10 font-modern">
-                No ideas found.{' '}
-                <a href="/dashboard/add" className="text-black font-semibold underline hover:text-gray-600 transition-colors cursor-pointer">
-                  Add one?
-                </a>
+                {tagFilter ? (
+                  <>
+                    No ideas found with tag <span className="font-bold">#{tagFilter}</span>.{' '}
+                    <button 
+                      onClick={clearTagFilter}
+                      className="text-black font-semibold underline hover:text-gray-600 transition-colors cursor-pointer"
+                    >
+                      Clear filter
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    No ideas found.{' '}
+                    <a href="/dashboard/add" className="text-black font-semibold underline hover:text-gray-600 transition-colors cursor-pointer">
+                      Add one?
+                    </a>
+                  </>
+                )}
               </div>
             ) : (
               Object.keys(grouped).map((date) => (
@@ -221,14 +269,17 @@ export default function IdeaBoxPage() {
                         {idea.tags && idea.tags.length > 0 && (
                           <div className="flex flex-wrap gap-2 mt-3">
                             {(Array.isArray(idea.tags) ? idea.tags : []).map(
-                              (tag: any, i: number) => (
-                                <span
-                                  key={i}
-                                  className="px-2 py-1 rounded-lg bg-gray-200 text-xs font-modern"
-                                >
-                                  #{tag}
-                                </span>
-                              )
+                              (tag: any, i: number) => {
+                                const cleanTag = tag.replace(/^#+/, '');
+                                return (
+                                  <span
+                                    key={i}
+                                    className="px-2 py-1 rounded-lg bg-gray-200 text-xs font-modern"
+                                  >
+                                    #{cleanTag}
+                                  </span>
+                                );
+                              }
                             )}
                           </div>
                         )}

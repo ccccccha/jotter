@@ -59,124 +59,195 @@ export default function DashboardPage() {
   const [newFolderName, setNewFolderName] = useState('');
   const [uncategorizedCount, setUncategorizedCount] = useState(0);
   const [dailyPrompt, setDailyPrompt] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUser();
     // Set daily prompt based on day of week (0-6)
     const dayOfWeek = new Date().getDay();
     setDailyPrompt(DAILY_PROMPTS[dayOfWeek]);
+    
+    checkAuth();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      loadDashboardData();
-    }
-  }, [user]);
+  async function checkAuth() {
+    try {
+      // Check if user is logged in using getSession instead of getUser
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        console.log('No active session, redirecting to login');
+        router.push('/login');
+        return;
+      }
 
-  async function loadUser() {
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user) {
+      setUser(session.user);
+      
+      // Load dashboard data after confirming auth
+      await loadDashboardData(session.user.id);
+    } catch (error) {
+      console.error('Auth check error:', error);
       router.push('/login');
-    } else {
-      setUser(data.user);
     }
   }
 
-  async function loadDashboardData() {
-    // Load folders
-    const { data: foldersData } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
+  async function loadDashboardData(userId: string) {
+    try {
+      setLoading(true);
 
-    if (foldersData) {
-      const foldersWithCounts = await Promise.all(
-        foldersData.map(async (folder) => {
-          const { count } = await supabase
-            .from('ideas')
-            .select('*', { count: 'exact', head: true })
-            .eq('folder_id', folder.id)
-            .eq('user_id', user.id);
-          return { ...folder, idea_count: count || 0 };
-        })
-      );
-      setFolders(foldersWithCounts);
-    }
+      // Load folders
+      const { data: foldersData, error: foldersError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
 
-    // Load uncategorized count
-    const { count } = await supabase
-      .from('ideas')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .is('folder_id', null);
-    setUncategorizedCount(count || 0);
-
-    // Load recent ideas (last 5)
-    const { data: ideasData } = await supabase
-      .from('ideas')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    
-    if (ideasData) {
-      setRecentIdeas(ideasData);
-    }
-
-    // Calculate popular tags from ALL user's ideas
-    const { data: allIdeas } = await supabase
-      .from('ideas')
-      .select('tags')
-      .eq('user_id', user.id);
-
-    if (allIdeas && allIdeas.length > 0) {
-      const tagCount: { [key: string]: number } = {};
-      
-      allIdeas.forEach((idea) => {
-        if (idea.tags && Array.isArray(idea.tags)) {
-          idea.tags.forEach((tag) => {
-            if (tag && tag.trim()) {
-              const normalizedTag = tag.trim().toLowerCase();
-              tagCount[normalizedTag] = (tagCount[normalizedTag] || 0) + 1;
+      if (foldersError) {
+        console.error('Error loading folders:', foldersError);
+        setFolders([]);
+      } else if (foldersData) {
+        // Load idea counts for each folder
+        const foldersWithCounts = await Promise.all(
+          foldersData.map(async (folder) => {
+            try {
+              const { count, error } = await supabase
+                .from('ideas')
+                .select('*', { count: 'exact', head: true })
+                .eq('folder_id', folder.id)
+                .eq('user_id', userId);
+              
+              if (error) {
+                console.error('Error counting ideas for folder:', error);
+                return { ...folder, idea_count: 0 };
+              }
+              return { ...folder, idea_count: count || 0 };
+            } catch (err) {
+              console.error('Error processing folder:', err);
+              return { ...folder, idea_count: 0 };
             }
-          });
-        }
-      });
+          })
+        );
+        setFolders(foldersWithCounts);
+      }
 
-      const sortedTags = Object.entries(tagCount)
-        .map(([tag, count]) => ({ tag, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 6);
+      // Load uncategorized count
+      const { count: uncatCount, error: uncatError } = await supabase
+        .from('ideas')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .is('folder_id', null);
 
-      setPopularTags(sortedTags);
-    } else {
-      setPopularTags([]);
+      if (uncatError) {
+        console.error('Error loading uncategorized count:', uncatError);
+        setUncategorizedCount(0);
+      } else {
+        setUncategorizedCount(uncatCount || 0);
+      }
+
+      // Load recent ideas (last 5)
+      const { data: ideasData, error: ideasError } = await supabase
+        .from('ideas')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (ideasError) {
+        console.error('Error loading recent ideas:', ideasError);
+        setRecentIdeas([]);
+      } else if (ideasData) {
+        setRecentIdeas(ideasData);
+      }
+
+      // Calculate popular tags
+      const { data: allIdeas, error: tagsError } = await supabase
+        .from('ideas')
+        .select('tags')
+        .eq('user_id', userId);
+
+      if (tagsError) {
+        console.error('Error loading tags:', tagsError);
+        setPopularTags([]);
+      } else if (allIdeas && allIdeas.length > 0) {
+        const tagCount: { [key: string]: number } = {};
+        
+        allIdeas.forEach((idea) => {
+          if (idea.tags && Array.isArray(idea.tags)) {
+            idea.tags.forEach((tag) => {
+              if (tag && tag.trim()) {
+                const cleanTag = tag.trim().toLowerCase().replace(/^#+/, '');
+                if (cleanTag) {
+                  tagCount[cleanTag] = (tagCount[cleanTag] || 0) + 1;
+                }
+              }
+            });
+          }
+        });
+
+        const sortedTags = Object.entries(tagCount)
+          .map(([tag, count]) => ({ tag, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 6);
+
+        setPopularTags(sortedTags);
+      } else {
+        setPopularTags([]);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setLoading(false);
     }
   }
 
   async function handleCreateFolder() {
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || !user) return;
 
-    const { error } = await supabase
-      .from('folders')
-      .insert([{ name: newFolderName.trim(), user_id: user.id }]);
+    try {
+      const { error } = await supabase
+        .from('folders')
+        .insert([{ name: newFolderName.trim(), user_id: user.id }]);
 
-    if (!error) {
-      setNewFolderName('');
-      setShowNewFolderModal(false);
-      loadDashboardData();
+      if (error) {
+        console.error('Error creating folder:', error);
+        alert('Failed to create folder. Please try again.');
+      } else {
+        setNewFolderName('');
+        setShowNewFolderModal(false);
+        loadDashboardData(user.id);
+      }
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      alert('Failed to create folder. Please try again.');
     }
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push('/');
+    try {
+      await supabase.auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  }
+
+  function handleTagClick(tag: string) {
+    router.push(`/dashboard/ideas?tag=${encodeURIComponent(tag)}`);
   }
 
   const filteredFolders = folders.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="bg-white min-h-screen text-black flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-modern">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -252,13 +323,13 @@ export default function DashboardPage() {
                 <h2 className="text-lg md:text-xl font-modern font-bold mb-3 md:mb-4">Your Popular Tags</h2>
                 <div className="flex flex-wrap gap-2 md:gap-3">
                   {popularTags.map(({ tag, count }) => (
-                    <a
+                    <button
                       key={tag}
-                      href={`/dashboard/ideas?tag=${encodeURIComponent(tag)}`}
+                      onClick={() => handleTagClick(tag)}
                       className="px-3 md:px-4 py-2 bg-black text-white font-modern font-bold text-xs md:text-sm rounded-full hover:bg-gray-800 transition-all transform hover:scale-105 cursor-pointer"
                     >
                       #{tag} <span className="opacity-75">({count})</span>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -369,11 +440,14 @@ export default function DashboardPage() {
                             </p>
                             {idea.tags && idea.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {idea.tags.slice(0, 3).map((tag, i) => (
-                                  <span key={i} className="text-xs font-modern text-gray-500">
-                                    #{tag}
-                                  </span>
-                                ))}
+                                {idea.tags.slice(0, 3).map((tag, i) => {
+                                  const cleanTag = tag.replace(/^#+/, '');
+                                  return (
+                                    <span key={i} className="text-xs font-modern text-gray-500">
+                                      #{cleanTag}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
